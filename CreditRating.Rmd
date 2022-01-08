@@ -1,0 +1,480 @@
+---
+title: "Credit Rating"
+author: Carpineta M., Ciarelli R., D'Onofrio M., Marusco L.
+output:
+  html_document:
+    code_folding: show
+    toc: yes
+    toc_float: yes
+    theme: simplex
+  pdf_document:
+    toc: yes
+---
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size:15.5px;
+      color: #000000; 
+  }
+</style>
+
+Questo dataset presenta informazioni circa la gestione del rischio di credito. In particolare, si vuole cercare di assegnare un grado di credito a ciascun mutuatario.
+
+I gradi sono utilizzati per classificare i clienti in base al loro merito di credito percepito: gradi migliori significano clienti meno rischiosi.
+
+I gradi sono disponibili in due categorie:
+
+  - **credit rating:** questi sono un piccolo numero di classi discrete, di solito etichettate con lettere, come 'AAA', 'BB-', e così via;
+  
+  - **credit scores:** sono voti numerici.
+  
+Si assume che ogni record dell'insieme di dati contenga le caratteristiche di un mutuatario e il rating che gli è stato assegnato. Questi possono essere rating interni, assegnati da un comitato che ha seguito politiche e procedure già in atto.
+
+Il set di dati contiene rapporti finanziari, settore industriale e rating per una lista di clienti aziendali.
+
+# **Introduzione**
+
+Per prima cosa importiamo il nostro dataset.
+
+```{r message=F, warning=F}
+
+library(readxl)
+credit.rating <- read_excel("Credit_Rating.xlsx", 
+    col_types = c("text", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "text"))
+
+attach(credit.rating)
+```
+
+Per avere una migliore visione sui valori dei nostri dati si è deciso di eliminare la notazione scientifica:
+
+```{r}
+options(scipen = 999)
+```
+
+## Le variabili
+
+Visualizziamo quindi i nomi delle nostre variabili e la natura del nostro dataset:
+
+```{r}
+str(credit.rating)
+```
+
+Il nostro dataset presenta **3932 unità statistiche**  e **8 variabili**.
+
+Di seguito è riportata una spiegazione dettagliata delle variabili:
+
+  - **ID**: rappresenta un identificativo del cliente.
+
+  - **X1**: questa variabile è calcolata come il rapporto tra il <u>capitale d'esercizio</u> e il <u>totale delle attività</u>. Questo valore è un buon test per la sofferenza aziendale:
+  
+    - un'azienda con capitale d'esercizio negativo è probabile che abbia problemi a soddisfare i suoi obblighi a breve termine perché non ci sono abbastanza attività correnti per coprire quegli obblighi;
+    
+    - un'azienda con un capitale d'esercizio significativamente positivo raramente ha problemi a pagare i suoi conti.
+
+  
+  - **X2**: questa variabile è calcolata come il rapporto tra gli <u>utili portati a nuovo</u> e il <u>totale delle attività</u>. Misura la quantità di utili o perdite reinvestite  perdite, che riflette l'entità della leva finanziaria dell'azienda:
+  
+    - Le aziende con un RE/TA basso stanno finanziando le spese di capitale attraverso prestiti piuttosto che attraverso gli utili non distribuiti; 
+    
+    - Le aziende con un alto RE/TA suggeriscono una storia di redditività positiva e la capacità di resistere a un cattivo anno di perdite.
+ 
+  
+  - **X3**:  questa variabile è calcolata come il rapporto tra il <u>risultato prima delle imposte e degli oneri finanziari (*EBIT*)</u> e il <u>totale delle attività</u>.
+  
+    Questo valore rappresenta una versione del rendimento delle attività (*ROA*), un modo efficace di valutare la capacità di un'azienda di spremere profitti dalle sue attività prima di dedurre fattori come interessi e tasse.
+  
+  - **X4**: questa variabile è calcolata come il rapporto tra il <u>valore di mercato dei capitali propri</u> e il <u>valore contabile del debito</u>.
+  
+    Questo indice mostra che se un'azienda dovesse diventare insolvente, cioè quanto il valore di mercato dell'azienda scenderebbe prima che le passività superino le attività sul bilancio. Questo rapporto aggiunge una dimensione di valore di mercato al modello che non è basato sui puri fondamentali. In altre parole, una capitalizzazione di mercato durevole può essere interpretata come la fiducia del mercato nella solida posizione finanziaria dell'azienda.
+  
+  - **X5**: questa variabile è calcolata come il rapporto tra il <u>totale vendite</u> e il <u>totale attivo</u>.
+  
+    Questo dice agli investitori quanto bene la gestione aziendale gestisce la concorrenza e quanto l'efficienza con cui l'azienda usa le risorse per generare vendite. La mancata crescita della quota di mercato si traduce in un basso o un S_TA in calo.
+  
+  - **X6**: Questa variabile rappresenta un'etichetta del settore industriale. Presenta valori interi che variano tra 1 e 12.
+  
+  - **Rating**: La variabile in questione rappresenta la valutazione assegnata al cliente.
+  
+Prima di proseguire si andrà per il momento a rimuovere dal nostro data frame la prima variabile inerente al codice identificativo del cliente in quanto non è utile per la nostra analisi.
+
+```{r}
+credit.rating <- credit.rating[2:8]
+```
+
+
+### *Rinominazione*
+
+Per una migliore visualizzazione andremo a rinominare le nostre variabili:
+
+```{r}
+names(credit.rating)[1] <- "WC_TA"
+names(credit.rating)[2] <- "RE_TA"
+names(credit.rating)[3] <- "EBIT_TA"
+names(credit.rating)[4] <- "MVE_BVTD"
+names(credit.rating)[5] <- "S_TA"
+names(credit.rating)[6] <- "ISL"
+names(credit.rating)[7] <- "RATING"
+```
+
+# **Analisi Esplorativa**
+
+Di seguito sono riportate delle piccole analisi esplorative sulle nostre variabili così da iniziare a capire meglio come sia strutturato questo dataset.
+
+La funzione `summary()` restituisce alcune statistiche descrittive, tra cui:
+
+  - il valore minimo e massimo tra tutte le unità statistiche per ciascuna variabile;
+  
+  - la media calcolata tra le varie unità statistiche su ciascuna variabile;
+  
+  - il primo, secondo (mediana) e terzo quantile per ogni variabile.
+
+Si andrà ad escludere l'ultima variabile inerente al rating in quanto non presenta valori numerici.
+
+```{r}
+summary(credit.rating[-c(7)])
+```
+
+## Istogrammi
+
+Nel grafico verranno riportate il numero di unità statistiche (i mutuatari) sull’asse delle ordinate, e i livelli della variabile di interesse sull’asse delle ascisse.
+
+```{r fig.align="center"}
+par(mfrow=c(2,3))
+
+hist(credit.rating$WC_TA, main = "WC/TA",col = "green", xlim = c(-1,1), breaks = 40, ylim = c(0,1200))
+hist(credit.rating$RE_TA, main = "RE/TA",col = "red", xlim = c(-1.5,1.5), breaks = 50, ylim = c(0,800))
+hist(credit.rating$EBIT_TA, main = "EBIT/TA",col = "blue", xlim = c(-0.2,0.3), ylim = c(0,1600), breaks = 50)
+hist(credit.rating$MVE_BVTD, main = "MVE/BVTD",col = "orange", xlim = c(0,10), ylim = c(0,2000), breaks = 100)
+hist(credit.rating$S_TA, main = "S/TA",col = "purple", xlim = c(0,1.5), ylim = c(0,2000), breaks = 50)
+```
+
+## Scatterplots
+
+Di seguito si andranno a rappresentare diversi grafici a dispersione così da iniziare a capire se c'è presenza di qualche associazione lineare tra le variabili. 
+
+Si sono escluse le variabili *ISL* e *RATING* in quanto non sono variabili numeriche continue.
+
+```{r message=F, warning=F, fig.align="center"}
+library(car)
+
+scatterplotMatrix( ~ WC_TA+RE_TA+EBIT_TA+MVE_BVTD+S_TA+ISL,
+                   col="black", pch=20, regLine = list(method=lm, lty=1, lwd=2, col="chartreuse3"), 
+                   smooth=FALSE,diagonal=list(method="density",bw="nrd0",adjust=1, kernel="gaussian",na.rm=TRUE), main="Matrice di dispersione con rette di regressione", data=credit.rating) 
+```
+
+Notiamo un comportamento insolito nella variabile **ISL**. Questo perché non è di tipo quantitativa continua, ma presenta una classe di valori che varia tra 1 e 12.
+Si è proceduto quindi in una conversione a fattori:
+
+```{r}
+credit.rating$ISL <- as.factor(credit.rating$ISL)
+```
+
+## Scatter per livelli di Rating
+
+Per iniziare ad individuare ed analizzare i <u>sette gruppi di clienti</u> si andrà a rappresentare le nostre unità inserendo sugli assi le variabili:
+
+  - **WC_TA**: indice di "sofferenza aziendale"
+  
+  - **RE_TA**: indice di "tolleranza ai debiti"
+  
+
+```{r warning=F,message=F,fig.align="center"}
+library(ggplot2)
+library(hrbrthemes)
+
+ggplot(credit.rating, aes(x=WC_TA, y=RE_TA, color=RATING,)) + 
+        geom_point(size=2) +
+        theme_ipsum() + 
+        xlab("WC/TA") + ylab("RE/TA") +
+        scale_color_manual(values=c(1:7))
+```
+
+Notiamo che i gruppi contrassegnati con valutazioni **AAA** sono quelli presenti in alto a destre del grafico. Questi, infatti, saranno i migliori clienti in quanto non hanno problemi a pagare i propri debiti e inoltre riescono a resistere a un cattivo anno di perdite.
+
+Al contrario, i gruppi **CCC** saranno formati da clienti insolventi.
+
+## Correlazioni
+
+Procediamo con uno studio sulla correlazione tra le variabili. In particolare, si utilizzerà l’ **indice di correlazione di Pearson** tra coppie di variabili quantitative continue. 
+  
+Vi è correlazione positiva (o concordanza) quando le variabili tendono a crescere o decrescere insieme; vi è correlazione negativa (o discordanza) quando al crescere di una variabile l’altra tende a decrescere e viceversa.
+
+Cona la funzione `cor()` si crea una matrice di correlazione, passando come argomento la matrice dei dati di interesse; quindi, la si salva in una variabile così da richiamarla per studi futuri.
+
+```{r}
+credit.rating.fit <- credit.rating[-c(6,7)]
+
+detach(credit.rating)
+attach(credit.rating.fit)
+
+mat.cor <- cor(credit.rating.fit)
+```
+
+Né si può vedere una migliore rappresentazione tramite grafico, sfruttando la funzione `corrplot()` della medesima libreria:
+
+```{r warning=F,message=F,fig.align="center"}
+library(corrplot)
+
+corrplot(mat.cor, method = "color", type = "upper",number.cex = .8, order="hclust", addCoef.col = "black",tl.col = "#CC9900", diag=F)
+```
+
+**NOTA:** Si è stampata solo la diagonale superiore della matrice di correlazione in quanto simmetrica a quella inferiore. Inoltre, si è omessa la diagonale principale dato che la correlazione di ogni variabile con sé stessa è sempre pari a $1$.
+
+### *Variabile ISL*
+
+Per quanto riguarda lo studio della correlazione tra le variabili continue e quella factor si deve applicare un procedimento differente rispetto al calcolo dell’indice di correlazione visto in precedenza.
+
+Difatti, se abbiamo una variabile continua e una categorica, è impossibile calcolare la correlazione tra loro. Tuttavia, si può usare la regressione per ottenere un valore numerico che può essere trattato in modo simile alla correlazione. 
+
+Per questo, dobbiamo creare un modello di regressione lineare semplice prendendo le variabili continue come variabile dipendente e la variabile factor come variabile indipendente.
+
+La radice quadrata dell'$R^2$ prodotto dal modello sarà il nostro coefficiente di correlazione.
+
+```{r}
+wc_ta.isl <- sqrt(summary(lm(WC_TA ~ ISL,data = credit.rating))$r.squared)
+re_ta.isl <- sqrt(summary(lm(RE_TA ~ ISL,data = credit.rating))$r.squared)
+ebit_ta.isl <- sqrt(summary(lm(EBIT_TA ~ ISL,data = credit.rating))$r.squared)
+mve_bvtd.isl <- sqrt(summary(lm(MVE_BVTD ~ ISL,data = credit.rating))$r.squared)
+s_ta.isl <- sqrt(summary(lm(S_TA ~ ISL,data = credit.rating))$r.squared)
+
+mat.cor.factor <- data.frame(wc_ta.isl,re_ta.isl,ebit_ta.isl,mve_bvtd.isl,s_ta.isl)
+```
+
+```{r}
+knitr::kable(mat.cor.factor, "simple")
+```
+
+
+# **PCA**
+
+In questa sezione l'obbiettivo è quello di riuscire a rappresentare graficamente le variabili e le unità statistiche, cogliendo informazioni e interazioni tra di esse.
+
+*L'analisi delle componenti principali* (detta PCA, oppure CPA) è una tecnica utilizzata nell’ambito della statistica multivariata per la semplificazione dei dati d’origine.
+
+Lo scopo primario di questa tecnica è la riduzione di un numero più o meno elevato di variabili in alcune variabili latenti; il motivo principale è la difficile rappresentazione dei dati oltre la terza dimensione.
+
+Ciò avviene tramite una trasformazione lineare delle variabili che proietta quelle originarie in un nuovo sistema cartesiano nel quale le variabili vengono ordinate in ordine decrescente di varianza. Si possono ottenere al massimo tante PCA quanto il numero di variabili originarie.
+
+Ogni PCA sarà **ortogonale** alle sue precedenti, cioè conterrà informazioni non ridondanti rispetto le altre e quindi incorrelate fra loro.
+
+Questa particolare tecnica, inoltre, consente di controllare il “trade-off” tra la perdita di informazioni e la semplificazione del problema (basta scegliere il numero appropriato di autovettori).
+
+
+Con il comando `prcomp()` si avvia l'Analisi in Componenti Principali:
+
+```{r}
+pr.out <- prcomp(credit.rating.fit,scale=T, center=T)
+```
+
+Si impone `scale=T` e `center=T` così da effettuare una standardizzazione sulle variabili, portando la loro varianza pari a $1$ e la loro media pari a $0$. Questo perché i nostri indici hanno unità intensità diverse, per cui si deve fare in modo che una variabile non prevarichi su un'altra. 
+
+Gli autovalori diranno quanta parte di variabilità è spiegata dalle PCA, mentre gli autovettori costituiscono i pesi della combinazione lineare (**vettore dei loadings**).
+
+Con il comando `names()` si stampano i nomi delle variabili:
+
+```{r}
+names(pr.out)
+```
+
+Di seguito sono riportati i significati di tali variabili:
+
+ - **sdev**: rappresentano le radici quadrate degli autovalori, cioè le deviazioni standard delle componenti principali;
+
+ - **rotation**: da informazioni sugli autovettori, in particolare sulle correlazioni tra le PCA e le variabili originarie;
+
+ - **center**: rappresenta la media delle variabili originarie; quindi è il valore corrispondente all’attuale origine dell’asse;
+
+ - **scale**: rappresenta la varianza delle variabili originarie;
+
+ - **x**: rappresentano le PCA (coordinate fattoriali);
+
+La dimensione della matrice delle PCA sarà uguale a quella originaria, con $3932 unità$ e $7 variabili$ (PCA):
+
+```{r}
+dim(pr.out$x)
+```
+
+Deviazione standard degli autovalori:
+
+```{r}
+pr.out$sdev
+```
+
+Si hanno **5 autovalori** poiché erano 5 le variabili originali. La *matrice degli autovalori* sarà di dimensione **5x5**:
+
+```{r}
+dim(pr.out$rotation)
+```
+
+Quando la si va a decomporre, tramite il teorema, questa formerà la *matrice Lambda* ($\Lambda$), di cui si estrae solo la diagonale.
+
+Gli autovalori sono portati in ordine decrescente: il primo, in particolare, da una quota maggiore di informazione sulla variabilità spiegata della prima PCA rispetto i successivi autovalori.
+
+Ora si andranno ad estrarre i veri e propri autovalori, elevando al quadrato il vettore della deviazione standard. Quindi si ottiene il vettore varianza.
+
+Dopodiché, rapportando questo nuovo vettore alla sommatoria dello stesso, si vedrà la percentuale di variabilità spiegata.
+
+```{r}
+pr.var <- (pr.out$sdev)^2
+pve <- pr.var/sum(pr.var)
+pve.perc <- pve*100
+pve.perc
+```
+
+Si legge che:
+
+  - La prima PCA spiega quasi il $66\%$ di variabilità;
+  
+  - La seconda PCA ne spiega quasi il $26\%$;
+  
+  - La terza ne spiega il $4,5\%$;
+  
+  - Dopo la terza la percentuale di variabilità spiegata andrà sempre più a diminuire.
+
+Con le sole prime due PCA si riesce ad ottenere una percentuale di variabilità spiegata pari al $91.43\%$, un risultato ottimo per proseguire l' analisi.
+
+Se si volesse ottenere una performance migliore si potrebbe aggiungere la terza PCA ottenendo così una percentuale che raggiunge quasi il $96\%$, ma si potrebbe complicare l'interpretazione.
+
+Quindi, utilizzando le prime 2 PCA avremo solo una piccola perdita di dati, pari a circa il $8.57\%$.
+
+## Variabilità Spiegata
+
+Si può andare a rappresentare graficamente la variabilità spiegata delle PCA, e la sua cumulata, tramite uno `Scree Plot`:
+
+```{r fig.align="center"}
+par(mfrow = c(1,2))
+plot(pve,xlab = "PCA",ylab = "Porzione di variabilità siegata",ylim = c(0,1),type = "b", main = "Scree Plot", pch = 19)
+plot(cumsum(pve),xlab = "PCA",ylab = "Porzione di variabilità siegata cumulata",ylim = c(0,1),type = "b", pch = 19, main  = "Scree Plot")
+```
+
+Sull'asse delle ascisse si ha il numero di PCA create; sull'asse delle ordinate, invece, si ha la porzione di variabilità spiegata da ciascuna componente per il primo grafico, mentre le cumulate le troviamo sul secondo grafico.
+
+La scelta di utilizzare le sole prime due PCA la si può giustificare anche guardando il grafico della porzione di variabilità spiegata cumulata. Questa scelta coincide anche con il *"metodo di Kaiser"*, il quale prendere in considerazione solamente quelle PCA che presentano una devianza standard maggiore di 1.
+
+Mostriamo ora gli autovettori relativi alle prime 2 componenti e vediamo come le variabili originali pesino nelle rispettive componenti:
+
+```{r}
+knitr::kable(abs(pr.out$rotation[,1:2]), "simple")
+```
+
+Si evidenzia nella prima componente principale che le variabili con maggiore peso (in valore assoluto) sono quelle relative a:
+  
+  - *WC/TA* (rapporto tra il capitale d’esercizio e il totale delle attività);
+  
+  - *RE/TA* (rapporto tra gli utili portati a nuovo e il totale delle attività);
+  
+  - *EBIT/TA* (rapporto tra il risultato prima delle imposte e degli oneri finanziari e il totale delle attività).
+  
+Mentre nella seconda componente principale si notano maggiormente le variabili inerenti a:
+
+  - *MVE/BVTD* (rapporto tra il valore di mercato dei capitali propri e il valore contabile del debito);
+  
+  - *S/TA* (rapporto tra il totale vendite e il totale attivo).
+  
+## Correlazioni
+
+Di seguito si andrà a calcolare la matrice di correlazione tra le variabili originarie e le PCA. Successivamente, salvandola in una nuova variabile ne si può vedere una migliore rappresentazione grafica:
+
+```{r fig.align='center'}
+mat.corPCA <- pr.out$rotation
+
+corrplot(mat.corPCA, method = "color",number.cex = .8, order = "hclust", addCoef.col = "black",tl.col = "#CC9900")
+```
+
+### Commenti Correlazioni
+
+Si nota che:
+
+  - **PC1** è discretamente correlata (in modo positivo) con *EBIT/TA*, *WC/TA* e *RE/TA*;
+  
+  - **PC2** è abbastanza correlata (in modo negativo) con *MVE/BVTD* e *S/TA*. Ciò significa che l'interpretazione su queste due variabili avrà più senso fatte su tale PCA rispetto la prima;
+
+ - Sono presenti anche delle alte correlazioni tra le variabili e le ultime PCA, ma queste non mi daranno una grande informazione poiché la maggior parte di variabilità sarà comunque meglio spiegata dalle prime due-tre PCA.
+
+## Piano Fattoriale
+
+*L’analisi fattoriale* consiste in un insieme di tecniche statistiche che permettono di ottenere una riduzione della complessità del numero di fattori che spiegano un fenomeno.
+
+Si propone quindi di determinare un certo numero di variabili “latenti” (fattori non direttamente misurabili nella realtà) più ristretto e riassuntivo rispetto al numero di variabili di partenza, che in questo caso, cercano di spiegare la maggior parte della varianza osservata.
+
+Si va quindi a rappresentare le unità statistiche in un piano fattoriale, utilizzandola prima e seconda PCA;\
+Le coordinate saranno rappresentate dalle due PCA di riferimento: (PC1,PC2). 
+
+```{r fig.align='center'}
+#biplot(pr.out,choices = 1:2, col = c('black','red'))
+#abline(v = 0, col = "blue")
+#abline(h = 0, col = "blue")
+
+knitr::include_graphics("biplot.jpeg")
+```
+
+Questo grafico riporta tutte le variabili originarie sotto forma di vettore, e rappresentate come frecce. La lunghezza della freccia corrisponde alla norma del vettore.
+
+Con un'inclinazione orizzontale della freccia la variabile sarà maggiormente correlata con PC1; se invece è più inclinata verticalmente la variabile sarà maggiormente correlata con PC2.
+
+Il segno della correlazione tra la variabile e le PCA si studia guardando in quale parte ricade la freccia rispetto l'asse delle X; se è al di sopra di esso la correlazione avrà segno positivo, negativo altrimenti.
+
+Mentre la correlazione tra le variabili si legge vedendo l'ampiezza dell'angolo tra una freccia e l'altra, meno è ampio l'angolo e più sarà alta la correlazione, e il segno si legge guardando in che parte del piano ricadono le variabili rispetto l'asse X: se entrambe al di sopra (o al di sotto) sarà positivo, se ricadono una sopra e l'altra sotto sarà negativo.
+
+Per quanto riguarda i valori che assumono le unità statistiche si può dire che:
+
+  - ad alti valori della PCA e una alta correlazione positiva con la variabile, corrisponderanno alti valori di tale variabile; 
+
+  - a bassi valori della PCA e una alta correlazione positiva con la variabile, corrisponderanno bassi valori di tale variabile; 
+  
+  - ad alti valori della PCA e una alta correlazione negativa con la variabile, corrisponderanno bassi valori di tale variabile;
+  
+  - a bassi valori della PCA e una alta correlazione negativa con la variabile, corrisponderanno alti valori di tale variabile; 
+
+Questo ci aiuterà anche a visualizzare meglio anche eventuali cluster.
+
+### Lettura del Piano Fattoriale
+
+Le PCA di riferimento, messe sugli assi, sono le prime due.
+
+Nel **primo quadrante** del piano (nord-est) i vettori **EBIT_TA**, **WC_TA** e **RE_TA**. I primi due sono molto vicini tra di loro, il quale ci permette di dire che c'è una forte correlazione positiva. Mentre tutte e tre saranno maggiormente correlate con la prima PCA in quanto graficamente più vicine all'asse orizzontale.
+
+Nel **quarto quadrante** del piano (sud-est) sono presenti i vettori **MVE_BVTD** e **S_TA**. Questi presentano una forte correlazione positiva tra loro in quanto quasi del tutto paralleli. Inoltre, possiamo dire che hanno una maggiore, seppur leggera, inclinazione verso la seconda PCA, quindi saranno più correlate con questa piuttosto che con la prima.
+
+Interpretando qualche dato si può dire, ad esempio, che il mutuatario n° **1032** presenta bassi valori di PC2, e data una forte correlazione negativa con le variabili *MVE_BVTD* e *S_TA* significa che porteranno altri valori su queste variabili;
+
+Mentre il mutuatario n° **3469** presenta bassi valori di PC1 e PC2, ciò significa che presenterà alti valori con le variabili che hanno una correlazione negativa con le PCA, e bassi valori con le variabili che hanno una correlazione positiva.
+
+Comunque si nota come la maggior parte delle unità presentano valori prossimi allo zero; quindi, non ci daranno informazioni importanti in quanto mostreranno quantità pari alla media.
+
+Concludendo, per questo grafico si può dire che:
+  
+  + la prima PCA è maggiormente caratterizzata dalle variabili *EBIT_TA*, *WC_TA* e *RE_TA*;
+  
+  + la seconda PCA è caratterizzata dalla variabili *MVE_BVTD* e *S_TA*;
+
+
+## Cluster
+
+Come ultima analisi si andranno a rappresentare, tramite grafico, le unità statistiche suddivise in base al **rating** dentro un piano fattoriale, utilizzando come coordinate le prime due PCA.
+
+```{r fig.align='center', warning=F, message=F}
+library(factoextra)
+fviz_pca_ind(pr.out, habillage = credit.rating$RATING)
+```
+
+Si possono notare principalmente **3 gruppi**: rosa, azzurro e verde. In particolare:
+  
+  - le unità colorate di <span style="color: pink;">**rosa**</span> sono caratterizzate con bassi valori di PC1 e PC2
+  
+  - le unità colorate di <span style="color: green;">**verde**</span> sono plottate a destra dell'asse verticale, (e quindi valori positivi per PC1) con un'importante variabilità per quanto riguarda la seconda PCA;
+  
+  - le unità colorate di <span style="color: blue;">**azzurro**</span> presentano valori molto prossimi all'origine degli assi.
+  
+In particolare, possiamo visualizzare i dati dei mutuatari *n°1032* e *n°3469*, i quali sono diametralmente opposti:
+
+```{r}
+credit.rating[1032,]
+credit.rating[3469,]
+```
+
+Il primo presenta alti valori su tutte le variabili, e un rating pari a **AAA**, mentre nel secondo si riscontrano bassi valori e un rating pari a **CCC**. 
+
+Per quanto riguarda la totalità delle osservazioni si può notare un posizionamento sul grafico nelle prossimità dell'origine, il quale ci fa comprendere come i valori assunti dalle variabili seguono una tendenza con valori che rispecchiano la media, non creando cluster ben definiti.
